@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>手寫簽名</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #f5f5f5;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            background: #fff;
+            touch-action: none; /* 防止手機滑動 */
+        }
+
+        .buttons {
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h2>請在下方手寫簽名</h2>
+
+<canvas id="signaturePad" width="500" height="200"></canvas>
+
+<div class="buttons">
+    <button onclick="clearCanvas()">清除</button>
+    <button onclick="saveSignature()">儲存簽名</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('signaturePad');
+    const ctx = canvas.getContext('2d');
+
+    let drawing = false;
+
+    // 設定筆觸
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#000';
+
+    function getPosition(e) {
+        const rect = canvas.getBoundingClientRect();
+        if (e.touches) {
+            return {
+                x: e.touches[0].clientX - rect.left,
+                y: e.touches[0].clientY - rect.top
+            };
+        }
+        return {
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top
+        };
+    }
+
+    function startDraw(e) {
+        drawing = true;
+        const pos = getPosition(e);
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    }
+
+    function draw(e) {
+        if (!drawing) return;
+        const pos = getPosition(e);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+    }
+
+    function endDraw() {
+        drawing = false;
+    }
+
+    // 滑鼠事件
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('mouseleave', endDraw);
+
+    // 觸控事件（手機）
+    canvas.addEventListener('touchstart', startDraw);
+    canvas.addEventListener('touchmove', draw);
+    canvas.addEventListener('touchend', endDraw);
+
+    function clearCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function saveSignature() {
+        const dataURL = canvas.toDataURL("image/png");
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = 'signature.png';
+        link.click();
+    }
+</script>
+
+</body>
+</html>
