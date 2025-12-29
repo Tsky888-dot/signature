@@ -1,103 +1,130 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>手寫簽名</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background: #f5f5f5;
-        }
-
-        canvas {
-            border: 2px solid #333;
-            background: #fff;
-            touch-action: none; /* 防止手機滑動 */
-        }
-
-        .buttons {
-            margin-top: 10px;
-        }
-
-        button {
-            padding: 8px 16px;
-            margin: 5px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>手寫簽名</title>
+<style>
+body { font-family: Arial, sans-serif; background:#f5f5f5; text-align:center; }
+canvas { border:2px solid #333; background:#fff; touch-action:none; }
+button { padding:8px 16px; margin:6px; font-size:15px; cursor:pointer; }
+#codeBox {
+  display:none; max-width:720px; margin:12px auto;
+  background:#fff; border:1px solid #ccc; border-radius:10px;
+  padding:12px; text-align:left;
+}
+#signCodeOutput {
+  margin-top:6px; word-break:break-all;
+  font-family:Consolas, monospace;
+}
+</style>
 </head>
+
 <body>
 
-<h2>請在下方手寫簽名</h2>
+<h2>請於下方手寫簽名</h2>
+
+<div style="max-width:720px;margin:0 auto;text-align:left;">
+  <label>
+    <input type="checkbox" id="agreeChk">
+    我已閱讀並同意相關活動規範與注意事項
+  </label>
+</div>
+
+<br>
 
 <canvas id="signaturePad" width="500" height="200"></canvas>
 
-<div class="buttons">
-    <button onclick="clearCanvas()">清除</button>
-    <button onclick="saveSignature()">儲存簽名</button>
+<br>
+
+<button onclick="clearCanvas()">清除重簽</button>
+<button onclick="saveSignature()">完成簽名</button>
+
+<div id="codeBox">
+  <div style="font-weight:700;">簽名完成碼（請點下方按鈕複製，回 BeClass 貼上）</div>
+  <div id="signCodeOutput"></div>
+  <div style="margin-top:8px;">
+    <button onclick="copyCode()">📋 點一下複製完成碼</button>
+    <button onclick="goBack()">返回 BeClass</button>
+  </div>
 </div>
 
 <script>
-async function sha256Hex(text) {
-  const bytes = new TextEncoder().encode(text);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+const BECLASS_URL = "https://www.beclass.com/rid=305025d6951ebb848db3";
+
+const canvas = document.getElementById("signaturePad");
+const ctx = canvas.getContext("2d");
+let drawing = false;
+let currentCode = "";
+
+ctx.lineWidth = 2;
+ctx.lineCap = "round";
+ctx.strokeStyle = "#000";
+
+function getPos(e){
+  const r = canvas.getBoundingClientRect();
+  if(e.touches) return {x:e.touches[0].clientX-r.left, y:e.touches[0].clientY-r.top};
+  return {x:e.clientX-r.left, y:e.clientY-r.top};
 }
 
-function nowString() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+canvas.onmousedown = e => { drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+canvas.onmousemove = e => { if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+canvas.onmouseup = ()=> drawing=false;
+canvas.onmouseleave = ()=> drawing=false;
+
+canvas.ontouchstart = e => { drawing=true; const p=getPos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); };
+canvas.ontouchmove = e => { if(!drawing) return; const p=getPos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); };
+canvas.ontouchend = ()=> drawing=false;
+
+function clearCanvas(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 }
 
-function isCanvasBlank(ctx, canvas) {
-  const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
-  for (let i=3;i<data.length;i+=4) if (data[i] !== 0) return false;
+function isBlank(){
+  const d = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  for(let i=3;i<d.length;i+=4) if(d[i]!==0) return false;
   return true;
 }
 
-async function copyText(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-    alert("已複製完成碼，請回 BeClass 貼上。");
-  } catch {
-    prompt("請手動複製完成碼，回 BeClass 貼上：", text);
+function nowStr(){
+  const d=new Date(),p=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+async function sha256(text){
+  const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+async function saveSignature(){
+  if(!document.getElementById("agreeChk").checked){
+    alert("請先勾選同意事項");
+    return;
+  }
+  if(isBlank()){
+    alert("尚未簽名，請先手寫簽名");
+    return;
+  }
+  const dataURL = canvas.toDataURL("image/png");
+  const hash = (await sha256(dataURL)).slice(0,16);
+  currentCode = `SIGNED|${nowStr()}|${hash}`;
+
+  document.getElementById("signCodeOutput").textContent = currentCode;
+  document.getElementById("codeBox").style.display = "block";
+}
+
+async function copyCode(){
+  try{
+    await navigator.clipboard.writeText(currentCode);
+    alert("完成碼已複製，請回 BeClass 貼上");
+  }catch{
+    prompt("請手動複製完成碼：", currentCode);
   }
 }
 
-async function saveSignature() {
-  const agree = document.getElementById('agreeChk'); // 你若有同意勾選
-  if (agree && !agree.checked) { alert("請先勾選同意條款"); return; }
-
-  const canvas = document.getElementById('signaturePad');
-  const ctx = canvas.getContext('2d');
-  if (isCanvasBlank(ctx, canvas)) { alert("尚未簽名，請先手寫簽名"); return; }
-
-  const dataURL = canvas.toDataURL("image/png");
-  const t = nowString();
-  const hash = await sha256Hex(dataURL);
-  const shortHash = hash.slice(0, 16); // 短碼即可（避免太長）
-
-  // 完成碼（你也可自行調整格式）
-  const signCode = `SIGNED|${t}|${shortHash}`;
-
-  // 顯示到頁面（需有 #signCodeOutput 元素）
-  const out = document.getElementById('signCodeOutput');
-  if (out) out.textContent = signCode;
-
-  // 一鍵複製
-  await copyText(signCode);
+function goBack(){
+  location.href = BECLASS_URL;
 }
 </script>
 
-
 </body>
 </html>
-
-<div style="margin-top:12px;background:#fff;border:1px solid #ccc;border-radius:8px;padding:10px;">
-  <div style="font-weight:600;">簽名完成碼（請複製貼回 BeClass）</div>
-  <div id="signCodeOutput" style="margin-top:6px;word-break:break-all;"></div>
-</div>
-
