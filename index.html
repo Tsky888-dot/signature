@@ -40,71 +40,59 @@
 </div>
 
 <script>
-    const canvas = document.getElementById('signaturePad');
-    const ctx = canvas.getContext('2d');
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
 
-    let drawing = false;
+function nowString() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 
-    // 設定筆觸
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#000';
+function isCanvasBlank(ctx, canvas) {
+  const data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
+  for (let i=3;i<data.length;i+=4) if (data[i] !== 0) return false;
+  return true;
+}
 
-    function getPosition(e) {
-        const rect = canvas.getBoundingClientRect();
-        if (e.touches) {
-            return {
-                x: e.touches[0].clientX - rect.left,
-                y: e.touches[0].clientY - rect.top
-            };
-        }
-        return {
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top
-        };
-    }
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("已複製完成碼，請回 BeClass 貼上。");
+  } catch {
+    prompt("請手動複製完成碼，回 BeClass 貼上：", text);
+  }
+}
 
-    function startDraw(e) {
-        drawing = true;
-        const pos = getPosition(e);
-        ctx.beginPath();
-        ctx.moveTo(pos.x, pos.y);
-    }
+async function saveSignature() {
+  const agree = document.getElementById('agreeChk'); // 你若有同意勾選
+  if (agree && !agree.checked) { alert("請先勾選同意條款"); return; }
 
-    function draw(e) {
-        if (!drawing) return;
-        const pos = getPosition(e);
-        ctx.lineTo(pos.x, pos.y);
-        ctx.stroke();
-    }
+  const canvas = document.getElementById('signaturePad');
+  const ctx = canvas.getContext('2d');
+  if (isCanvasBlank(ctx, canvas)) { alert("尚未簽名，請先手寫簽名"); return; }
 
-    function endDraw() {
-        drawing = false;
-    }
+  const dataURL = canvas.toDataURL("image/png");
+  const t = nowString();
+  const hash = await sha256Hex(dataURL);
+  const shortHash = hash.slice(0, 16); // 短碼即可（避免太長）
 
-    // 滑鼠事件
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', endDraw);
-    canvas.addEventListener('mouseleave', endDraw);
+  // 完成碼（你也可自行調整格式）
+  const signCode = `SIGNED|${t}|${shortHash}`;
 
-    // 觸控事件（手機）
-    canvas.addEventListener('touchstart', startDraw);
-    canvas.addEventListener('touchmove', draw);
-    canvas.addEventListener('touchend', endDraw);
+  // 顯示到頁面（需有 #signCodeOutput 元素）
+  const out = document.getElementById('signCodeOutput');
+  if (out) out.textContent = signCode;
 
-    function clearCanvas() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function saveSignature() {
-        const dataURL = canvas.toDataURL("image/png");
-        const link = document.createElement('a');
-        link.href = dataURL;
-        link.download = 'signature.png';
-        link.click();
-    }
+  // 一鍵複製
+  await copyText(signCode);
+}
 </script>
+
 
 </body>
 </html>
+
