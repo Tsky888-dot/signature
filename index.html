@@ -51,7 +51,7 @@ button { padding:8px 16px; margin:6px; font-size:15px; cursor:pointer; }
 
 <script>
 const BECLASS_URL = "https://www.beclass.com/rid=305025d6951ebb848db3";
-const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxkc7xsB7mbPmOHWCpUl33VG5xF0M3-Zyf-jeU1FwxsynTjFHI4XrIUgppuEt-wKZUlTg/exec";
+const UPLOAD_URL = "請貼你的 Web App /exec 網址";
 
 const canvas = document.getElementById("signaturePad");
 const ctx = canvas.getContext("2d");
@@ -64,20 +64,43 @@ ctx.strokeStyle = "#000";
 
 function getPos(e){
   const r = canvas.getBoundingClientRect();
-  if (e.touches && e.touches[0]) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+  if (e.touches && e.touches[0]) {
+    return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+  }
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 }
 
-// 滑鼠
-canvas.onmousedown = e => { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-canvas.onmousemove = e => { if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-canvas.onmouseup = () => drawing = false;
-canvas.onmouseleave = () => drawing = false;
+// mouse
+canvas.addEventListener("mousedown", e => {
+  drawing = true;
+  const p = getPos(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+});
+canvas.addEventListener("mousemove", e => {
+  if (!drawing) return;
+  const p = getPos(e);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+});
+canvas.addEventListener("mouseup", () => drawing = false);
+canvas.addEventListener("mouseleave", () => drawing = false);
 
-// 觸控
-canvas.ontouchstart = e => { drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
-canvas.ontouchmove  = e => { if (!drawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
-canvas.ontouchend   = () => drawing = false;
+// touch
+canvas.addEventListener("touchstart", e => {
+  drawing = true;
+  const p = getPos(e);
+  ctx.beginPath();
+  ctx.moveTo(p.x, p.y);
+});
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+  if (!drawing) return;
+  const p = getPos(e);
+  ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+});
+canvas.addEventListener("touchend", () => drawing = false);
 
 function clearCanvas(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -87,26 +110,28 @@ function clearCanvas(){
 
 function isBlank(){
   const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-  for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return false;
+  for (let i = 3; i < d.length; i += 4) {
+    if (d[i] !== 0) return false;
+  }
   return true;
 }
 
 function nowStr(){
-  const d = new Date(), p = n => String(n).padStart(2, "0");
+  const d = new Date(), p = n => String(n).padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
 function nowCompact(){
-  const d = new Date(), p = n => String(n).padStart(2, "0");
+  const d = new Date(), p = n => String(n).padStart(2,"0");
   return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
 }
 
 async function sha256(text){
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2,"0")).join("");
 }
 
-// ✅ 完成簽名（只負責產生完成碼 + 顯示）
+// 完成簽名 → 產生完成碼
 async function saveSignature(){
   const agree = document.getElementById("agreeChk");
   if (agree && !agree.checked){
@@ -119,14 +144,14 @@ async function saveSignature(){
   }
 
   const dataURL = canvas.toDataURL("image/png");
-  const hash = (await sha256(dataURL)).slice(0, 16);
+  const hash = (await sha256(dataURL)).slice(0,16);
   currentCode = `SIGNED|${nowStr()}|${hash}`;
 
   document.getElementById("signCodeOutput").textContent = currentCode;
   document.getElementById("codeBox").style.display = "block";
 }
 
-// ✅ 上傳簽名圖片到雲端（按鈕會直接呼叫到）
+// 上傳到 Google Drive（no-cors，不讀回應）
 async function uploadSignature(){
   const agree = document.getElementById("agreeChk");
   if (agree && !agree.checked){
@@ -138,7 +163,7 @@ async function uploadSignature(){
     return;
   }
 
-  const emp = prompt("請輸入姓名（建議：工號_姓名）例如：E123_王小明");
+  const emp = prompt("請輸入姓名（建議：工號_姓名）");
   if (!emp) return;
 
   const dataURL = canvas.toDataURL("image/png");
@@ -151,18 +176,7 @@ async function uploadSignature(){
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ imageBase64: dataURL, filename })
     });
-
-    alert("已送出上傳請求！請到 Drive 資料夾確認是否出現簽名圖片。");
-  } catch (err) {
-    alert("上傳錯誤：" + err);
-  }
-}
-    const json = await res.json();
-    if (json.ok){
-      alert("簽名圖片上傳成功！");
-    } else {
-      alert("上傳失敗：" + (json.error || "未知錯誤"));
-    }
+    alert("已送出上傳請求！請到 Drive 確認是否出現圖片。");
   } catch (err){
     alert("上傳錯誤：" + err);
   }
@@ -170,15 +184,11 @@ async function uploadSignature(){
 
 async function copyCode(){
   if (!currentCode){
-    alert("尚未產生完成碼，請先按「完成簽名」。");
+    alert("尚未產生完成碼");
     return;
   }
-  try{
-    await navigator.clipboard.writeText(currentCode);
-    alert("完成碼已複製，請回 BeClass 貼上");
-  } catch {
-    prompt("請手動複製完成碼：", currentCode);
-  }
+  await navigator.clipboard.writeText(currentCode);
+  alert("完成碼已複製，請回 BeClass 貼上");
 }
 
 function goBack(){
@@ -187,8 +197,10 @@ function goBack(){
 </script>
 
 
+
 </body>
 </html>
+
 
 
 
