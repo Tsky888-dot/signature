@@ -38,6 +38,7 @@ button { padding:8px 16px; margin:6px; font-size:15px; cursor:pointer; }
 
 <button onclick="clearCanvas()">清除重簽</button>
 <button onclick="saveSignature()">完成簽名</button>
+<button onclick="uploadSignature()">上傳簽名圖片到雲端</button>
 
 <div id="codeBox">
   <div style="font-weight:700;">簽名完成碼（請點下方按鈕複製，回 BeClass 貼上）</div>
@@ -50,6 +51,7 @@ button { padding:8px 16px; margin:6px; font-size:15px; cursor:pointer; }
 
 <script>
 const BECLASS_URL = "https://www.beclass.com/rid=305025d6951ebb848db3";
+const UPLOAD_URL = "https://script.google.com/macros/s/AKfycbxkc7xsB7mbPmOHWCpUl33VG5xF0M3-Zyf-jeU1FwxsynTjFHI4XrIUgppuEt-wKZUlTg/exec";
 
 const canvas = document.getElementById("signaturePad");
 const ctx = canvas.getContext("2d");
@@ -89,7 +91,11 @@ function nowStr(){
   const d=new Date(),p=n=>String(n).padStart(2,"0");
   return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
-
+function nowCompact() {
+  const d = new Date();
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
 async function sha256(text){
   const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
@@ -100,10 +106,39 @@ async function saveSignature(){
     alert("請先勾選同意事項");
     return;
   }
+  async function uploadSignature() {
+  const canvas = document.getElementById("signaturePad");
+  if (!canvas) {
+    alert("找不到簽名區！");
+    return;
+  }
+    
+  const dataURL = canvas.toDataURL("image/png");
   if(isBlank()){
     alert("尚未簽名，請先手寫簽名");
     return;
   }
+  const emp = prompt("請輸入姓名:");
+  if (!emp) return;
+
+  const filename = `${emp}_${nowCompact()}.png`;
+try {
+    const res = await fetch(UPLOAD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ imageBase64: dataURL, filename })
+    });
+    const json = await res.json();
+    if (json.ok) {
+      alert("簽名圖片上傳成功！");
+    } else {
+      alert("上傳失敗：" + json.error);
+    }
+  } catch (err) {
+    alert("上傳錯誤：" + err);
+  }
+}
+    
   const dataURL = canvas.toDataURL("image/png");
   const hash = (await sha256(dataURL)).slice(0,16);
   currentCode = `SIGNED|${nowStr()}|${hash}`;
@@ -128,3 +163,4 @@ function goBack(){
 
 </body>
 </html>
+
