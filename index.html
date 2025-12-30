@@ -169,17 +169,39 @@ async function uploadSignature(){
   const dataURL = canvas.toDataURL("image/png");
   const filename = `${emp}_${nowCompact()}.png`;
 
-  try {
-    await fetch(UPLOAD_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ imageBase64: dataURL, filename })
-    });
-    alert("已送出上傳請求！請到 Drive 確認是否出現圖片。");
-  } catch (err){
-    alert("上傳錯誤：" + err);
+  // ✅ 用 Form 提交（不吃 CORS）
+  const iframeName = "upload_iframe";
+  let iframe = document.getElementsByName(iframeName)[0];
+  if (!iframe){
+    iframe = document.createElement("iframe");
+    iframe.name = iframeName;
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
   }
+
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = UPLOAD_URL;     // 你的 /exec
+  form.target = iframeName;
+
+  const i1 = document.createElement("input");
+  i1.type = "hidden";
+  i1.name = "imageBase64";
+  i1.value = dataURL;
+
+  const i2 = document.createElement("input");
+  i2.type = "hidden";
+  i2.name = "filename";
+  i2.value = filename;
+
+  form.appendChild(i1);
+  form.appendChild(i2);
+  document.body.appendChild(form);
+
+  form.submit();
+  form.remove();
+
+  alert("已送出上傳請求（Form 模式）！請 10 秒後到 Drive 資料夾確認是否出現圖片。");
 }
 
 async function copyCode(){
@@ -200,6 +222,7 @@ function goBack(){
 
 </body>
 </html>
+
 
 
 
