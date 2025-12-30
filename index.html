@@ -182,7 +182,7 @@ async function uploadSignature(){
   const form = document.createElement("form");
   form.method = "POST";
   form.action = UPLOAD_URL;     // 你的 /exec
-  form.target = iframeName;
+  form.target = "_blank";
 
   const i1 = document.createElement("input");
   i1.type = "hidden";
@@ -222,6 +222,7 @@ function goBack(){
 
 </body>
 </html>
+
 
 
 
