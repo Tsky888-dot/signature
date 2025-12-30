@@ -169,20 +169,17 @@ async function uploadSignature(){
   const dataURL = canvas.toDataURL("image/png");
   const filename = `${emp}_${nowCompact()}.png`;
 
-  // ✅ 用 Form 提交（不吃 CORS）
-  const iframeName = "upload_iframe";
-  let iframe = document.getElementsByName(iframeName)[0];
-  if (!iframe){
-    iframe = document.createElement("iframe");
-    iframe.name = iframeName;
-    iframe.style.display = "none";
-    document.body.appendChild(iframe);
-  }
-
+  // ✅ 強制 POST：用 form 的 method 屬性與 setAttribute 雙保險
   const form = document.createElement("form");
+  form.setAttribute("method", "POST");
   form.method = "POST";
-  form.action = UPLOAD_URL;     // 你的 /exec
+  form.action = UPLOAD_URL;
+
+  // 測試用：先開新分頁看回應（成功時應回 OK:UPLOADED:xxx）
   form.target = "_blank";
+
+  // ✅ 很關鍵：enctype 不要用 multipart（Apps Script WebApp 不吃）
+  form.enctype = "application/x-www-form-urlencoded";
 
   const i1 = document.createElement("input");
   i1.type = "hidden";
@@ -194,15 +191,21 @@ async function uploadSignature(){
   i2.name = "filename";
   i2.value = filename;
 
+  // 加一個小參數，方便你辨識是不是 doPost 收到
+  const i3 = document.createElement("input");
+  i3.type = "hidden";
+  i3.name = "ping";
+  i3.value = "1";
+
   form.appendChild(i1);
   form.appendChild(i2);
-  document.body.appendChild(form);
+  form.appendChild(i3);
 
+  document.body.appendChild(form);
   form.submit();
   form.remove();
-
-  alert("已送出上傳請求（Form 模式）！請 10 秒後到 Drive 資料夾確認是否出現圖片。");
 }
+
 
 async function copyCode(){
   if (!currentCode){
@@ -222,6 +225,7 @@ function goBack(){
 
 </body>
 </html>
+
 
 
 
