@@ -144,12 +144,18 @@ async function uploadSignature(){
   const dataURL = canvas.toDataURL("image/png");
   const filename = `${emp}_${nowCompact()}.png`;
 
-  try{
-    const res = await fetch(UPLOAD_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ imageBase64: dataURL, filename })
-    });
+  try {
+  await fetch(UPLOAD_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ imageBase64: dataURL, filename })
+  });
+
+  alert("已送出上傳請求！請到 Drive 資料夾確認是否出現簽名圖片。");
+} catch (err) {
+  alert("上傳錯誤：" + err);
+}
 
     const json = await res.json();
     if (json.ok){
@@ -183,5 +189,6 @@ function goBack(){
 
 </body>
 </html>
+
 
 
